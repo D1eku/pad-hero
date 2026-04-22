@@ -1,0 +1,439 @@
+:root {
+  --bg: #14141e;
+  --fg: #f5f5f5;
+  --accent: #ffc94d;
+  --dim: #3a3a48;
+  --danger: #ff4d6d;
+  --ok: #7dff4d;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  overflow: hidden;
+}
+
+#app {
+  width: 100%;
+  height: 100%;
+  display: flex;
+}
+
+.view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  gap: 1.5rem;
+}
+
+.view-menu, .view-track-picker {
+  justify-content: flex-start;
+  padding-top: 2.5rem;
+  overflow-y: auto;
+}
+
+.view-menu h1 {
+  font-size: 4rem;
+  letter-spacing: 0.2em;
+  margin: 0;
+  color: var(--accent);
+}
+
+.midi-status {
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 0.9rem;
+}
+.midi-status.ok { background: rgba(125, 255, 77, 0.15); color: var(--ok); }
+.midi-status.err { background: rgba(255, 77, 109, 0.15); color: var(--danger); }
+
+.song-list {
+  list-style: none;
+  padding: 0 0.5rem 0 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 320px;
+  max-height: 55vh;
+  overflow-y: auto;
+}
+.song-list button {
+  width: 100%;
+  padding: 1rem;
+  font-size: 1.2rem;
+  background: var(--dim);
+  color: var(--fg);
+  border: 2px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.1s;
+}
+.song-list button:hover:not(:disabled) {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+.song-list button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.empty {
+  opacity: 0.7;
+  font-style: italic;
+  max-width: 500px;
+  text-align: center;
+}
+
+.view-game {
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 1.5rem;
+}
+
+.game-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 14px;
+  background: var(--dim);
+  border-radius: 7px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  transition: width 0.2s ease;
+}
+.progress-text {
+  font-family: monospace;
+  font-size: 0.9rem;
+  min-width: 3em;
+  text-align: right;
+}
+
+.controls {
+  display: flex;
+  gap: 0.5rem;
+}
+.controls button {
+  padding: 0.5rem 1rem;
+  background: var(--dim);
+  color: var(--fg);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.controls button:hover { background: #4a4a58; }
+
+.tiles {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+}
+.tile {
+  border-radius: 12px;
+  color: #14141e;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  font-family: system-ui, sans-serif;
+}
+.tile-current {
+  width: 280px;
+  height: 280px;
+}
+.tile-current .pad-num { font-size: 1.6rem; letter-spacing: 0.1em; }
+.tile-current .note-name { font-size: 4rem; margin-top: 0.5rem; }
+.tile-next {
+  width: 120px;
+  height: 120px;
+  opacity: 0.65;
+}
+.tile-next .pad-num { font-size: 0.8rem; letter-spacing: 0.1em; }
+.tile-next .note-name { font-size: 1.6rem; }
+
+.pads {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  width: 100%;
+  max-width: 640px;
+}
+.pad {
+  aspect-ratio: 1;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: bold;
+  color: #14141e;
+  opacity: 0.35;
+  transition: opacity 0.12s, transform 0.12s;
+}
+.pad.hit {
+  opacity: 1;
+  transform: scale(1.08);
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14rem;
+  font-weight: bold;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 10;
+}
+.overlay.hidden { display: none; }
+.overlay.miss { color: var(--danger); }
+.overlay.pause { color: var(--accent); font-size: 5rem; letter-spacing: 0.25em; }
+
+.view-end h1 {
+  font-size: 5rem;
+  color: var(--ok);
+  margin: 0;
+}
+.view-end p {
+  font-size: 1.3rem;
+  opacity: 0.8;
+}
+
+.mode-selector {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem;
+  max-width: 640px;
+}
+.mode-selector .label {
+  font-size: 0.9rem;
+  opacity: 0.7;
+  margin-right: 0.4rem;
+}
+.mode-btn {
+  padding: 0.4rem 1rem;
+  background: var(--dim);
+  color: var(--fg);
+  border: 2px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: border-color 0.15s, background 0.15s;
+}
+.mode-btn:hover { background: #4a4a58; }
+.mode-btn.active {
+  border-color: var(--accent);
+  background: #3e3720;
+  color: var(--accent);
+}
+
+.view-game-falling {
+  justify-content: flex-start;
+  gap: 1rem;
+  padding: 1.5rem;
+}
+.view-game-falling .game-header {
+  width: 100%;
+}
+.falling-area {
+  position: relative;
+  width: 100%;
+  max-width: 640px;
+  height: 600px;
+  margin: 0 auto;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 201, 77, 0.05) 80%,
+    rgba(255, 201, 77, 0.18) 100%
+  );
+  border-bottom: 2px solid rgba(255, 201, 77, 0.7);
+  box-shadow:
+    inset 0 -18px 28px -14px rgba(255, 201, 77, 0.35),
+    0 0 16px rgba(255, 201, 77, 0.25);
+}
+.falling-area .lanes {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  height: 100%;
+  position: relative;
+}
+.falling-area .lane {
+  position: relative;
+  height: 100%;
+  border-left: 1px dashed rgba(255, 255, 255, 0.05);
+  border-right: 1px dashed rgba(255, 255, 255, 0.05);
+}
+.falling-tile {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  bottom: 0;
+  height: 100px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #14141e;
+  font-weight: bold;
+  opacity: 0.7;
+  transform: translateY(-720px);
+  transition: transform 220ms cubic-bezier(0.4, 0.0, 0.2, 1),
+              opacity 220ms ease-out,
+              filter 200ms ease-out;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  will-change: transform, opacity;
+  font-family: system-ui, sans-serif;
+}
+.falling-tile.tile-current {
+  opacity: 1;
+  outline: 3px solid rgba(255, 255, 255, 0.95);
+  outline-offset: -6px;
+  filter: brightness(1.12);
+}
+.falling-tile.tile-hit {
+  transform: translateY(80px) scale(0.3) !important;
+  opacity: 0 !important;
+}
+.falling-tile .fall-num {
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  opacity: 0.85;
+}
+.falling-tile .fall-note {
+  font-size: 1.7rem;
+  margin-top: 0.15rem;
+}
+.pads-falling {
+  max-width: 640px;
+  gap: 8px;
+  grid-template-columns: repeat(4, 1fr);
+  margin-top: 0.5rem;
+}
+
+.view-track-picker {
+  max-width: 560px;
+}
+.view-track-picker h1 {
+  font-size: 2.2rem;
+  color: var(--accent);
+  margin: 0;
+  letter-spacing: 0.05em;
+}
+.song-title {
+  font-size: 1.1rem;
+  opacity: 0.85;
+  margin: 0;
+}
+.picker-hint {
+  font-size: 0.85rem;
+  opacity: 0.6;
+  max-width: 480px;
+  text-align: center;
+  line-height: 1.4;
+  margin: 0;
+}
+.track-list {
+  list-style: none;
+  padding: 0 0.5rem 0 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 420px;
+  width: 100%;
+  max-height: 55vh;
+  overflow-y: auto;
+}
+.track-btn {
+  width: 100%;
+  padding: 0.8rem 1rem;
+  background: var(--dim);
+  color: var(--fg);
+  border: 2px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s, transform 0.1s;
+  font-family: inherit;
+}
+.track-btn:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+.track-btn.last-played {
+  border-color: var(--accent);
+  background: #3e3720;
+}
+.track-idx {
+  font-family: monospace;
+  font-size: 1.3rem;
+  font-weight: bold;
+  color: var(--accent);
+  min-width: 3ch;
+}
+.track-info { flex: 1; }
+.track-name {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+.track-meta {
+  font-size: 0.8rem;
+  opacity: 0.7;
+  font-family: monospace;
+  margin-top: 0.2rem;
+}
+.track-badge {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  background: var(--accent);
+  color: #14141e;
+  padding: 0.2rem 0.5rem;
+  border-radius: 3px;
+  font-weight: bold;
+}
+.back-btn {
+  padding: 0.5rem 1.5rem;
+  background: var(--dim);
+  color: var(--fg);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+}
+.back-btn:hover { background: #4a4a58; }
