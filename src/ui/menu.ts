@@ -1,8 +1,15 @@
 import type { SongInfo, MidiStatus } from '../types';
 import { INSTRUMENTS, type InstrumentKey } from '../audio/instruments';
+import { SYNTHS, type SynthKey, type SynthType } from '../audio/synths';
 
 export type ViewMode = 'static' | 'falling';
-export type SynthType = 'simple' | InstrumentKey;
+export type { SynthType };
+
+export interface StrategyOption {
+  key: string;
+  label: string;
+  description: string;
+}
 
 export interface MenuParams {
   songs: SongInfo[];
@@ -11,7 +18,11 @@ export interface MenuParams {
   onViewMode: (mode: ViewMode) => void;
   synth: SynthType;
   onSynth: (synth: SynthType) => void;
+  strategies: StrategyOption[];
+  currentStrategy: string;
+  onStrategy: (key: string) => void;
   onPlay: (song: SongInfo) => void;
+  onSelectDevice: (id: string) => void;
 }
 
 export function renderMenu(root: HTMLElement, params: MenuParams): void {
@@ -20,83 +31,188 @@ export function renderMenu(root: HTMLElement, params: MenuParams): void {
   const container = document.createElement('div');
   container.className = 'view view-menu';
 
+  container.appendChild(buildHeader(params));
+  container.appendChild(buildBody(params));
+
+  root.appendChild(container);
+}
+
+function buildHeader(params: MenuParams): HTMLElement {
+  const header = document.createElement('header');
+  header.className = 'menu-header';
+
+  const brand = document.createElement('div');
+  brand.className = 'menu-header-brand';
+
   const title = document.createElement('h1');
   title.textContent = 'PAD HERO';
-  container.appendChild(title);
+  brand.appendChild(title);
 
-  const status = document.createElement('div');
-  status.className = 'midi-status ' + (params.midiStatus.ok ? 'ok' : 'err');
-  status.textContent = params.midiStatus.ok
-    ? `Conectado: ${params.midiStatus.deviceName}`
-    : `MIDI: ${params.midiStatus.error ?? 'no disponible'}`;
-  container.appendChild(status);
+  const midi = document.createElement('div');
+  midi.className = 'menu-header-midi ' + (params.midiStatus.ok ? 'ok' : 'err');
 
-  const modeWrap = document.createElement('div');
-  modeWrap.className = 'mode-selector';
+  const midiDot = document.createElement('span');
+  midiDot.className = 'midi-dot';
+  midi.appendChild(midiDot);
+
+  if (params.midiStatus.devices.length > 1) {
+    const select = document.createElement('select');
+    select.className = 'device-select';
+    for (const dev of params.midiStatus.devices) {
+      const opt = document.createElement('option');
+      opt.value = dev.id;
+      opt.textContent = dev.name;
+      if (dev.id === params.midiStatus.selectedId) opt.selected = true;
+      select.appendChild(opt);
+    }
+    select.onchange = () => params.onSelectDevice(select.value);
+    midi.appendChild(select);
+  } else {
+    const label = document.createElement('span');
+    label.className = 'midi-label';
+    label.textContent = params.midiStatus.ok
+      ? params.midiStatus.deviceName ?? 'MIDI conectado'
+      : params.midiStatus.error ?? 'MIDI no disponible';
+    midi.appendChild(label);
+  }
+
+  brand.appendChild(midi);
+  header.appendChild(brand);
+
+  const modes = document.createElement('div');
+  modes.className = 'menu-header-modes';
   const modeLabel = document.createElement('span');
-  modeLabel.className = 'label';
-  modeLabel.textContent = 'Modo:';
-  modeWrap.appendChild(modeLabel);
+  modeLabel.className = 'menu-header-modes-label';
+  modeLabel.textContent = 'Modo';
+  modes.appendChild(modeLabel);
 
-  const modes: { key: ViewMode; label: string }[] = [
+  const modeList: { key: ViewMode; label: string }[] = [
     { key: 'static', label: 'Estático' },
     { key: 'falling', label: 'Caída' },
   ];
-  for (const m of modes) {
+  for (const m of modeList) {
     const btn = document.createElement('button');
     btn.className = 'mode-btn' + (params.viewMode === m.key ? ' active' : '');
     btn.textContent = m.label;
     btn.onclick = () => params.onViewMode(m.key);
-    modeWrap.appendChild(btn);
+    modes.appendChild(btn);
   }
-  container.appendChild(modeWrap);
+  header.appendChild(modes);
 
-  const synthWrap = document.createElement('div');
-  synthWrap.className = 'mode-selector';
-  const synthLabel = document.createElement('span');
-  synthLabel.className = 'label';
-  synthLabel.textContent = 'Sonido:';
-  synthWrap.appendChild(synthLabel);
+  return header;
+}
 
-  const synths: { key: SynthType; label: string }[] = [
-    { key: 'simple', label: 'Simple' },
-    ...(Object.entries(INSTRUMENTS) as [InstrumentKey, { label: string }][]).map(
-      ([key, inst]) => ({ key: key as SynthType, label: inst.label })
+function buildBody(params: MenuParams): HTMLElement {
+  const body = document.createElement('div');
+  body.className = 'menu-body';
+
+  body.appendChild(buildSoundPanel(params));
+  body.appendChild(buildSongPanel(params));
+  body.appendChild(buildMappingPanel(params));
+
+  return body;
+}
+
+function buildSoundPanel(params: MenuParams): HTMLElement {
+  const panel = createPanel('Sonido');
+
+  const synthEntries = Object.entries(SYNTHS) as [SynthKey, { label: string }][];
+  const instEntries = Object.entries(INSTRUMENTS) as [InstrumentKey, { label: string }][];
+
+  panel.content.appendChild(
+    buildSection(
+      'Synths',
+      synthEntries.map(([k, v]) => [k, v.label]),
+      params.synth,
+      key => params.onSynth(key as SynthType),
     ),
-  ];
-  for (const s of synths) {
-    const btn = document.createElement('button');
-    btn.className = 'mode-btn' + (params.synth === s.key ? ' active' : '');
-    btn.textContent = s.label;
-    btn.onclick = () => params.onSynth(s.key);
-    synthWrap.appendChild(btn);
-  }
-  container.appendChild(synthWrap);
+  );
+  panel.content.appendChild(
+    buildSection(
+      'Instrumentos',
+      instEntries.map(([k, v]) => [k, v.label]),
+      params.synth,
+      key => params.onSynth(key as SynthType),
+    ),
+  );
+  return panel.root;
+}
 
-  const sub = document.createElement('h2');
-  sub.textContent = 'Elige una canción';
-  container.appendChild(sub);
+function buildSongPanel(params: MenuParams): HTMLElement {
+  const panel = createPanel('Canción');
 
   if (params.songs.length === 0) {
     const empty = document.createElement('p');
     empty.className = 'empty';
-    empty.textContent =
-      'No hay canciones. Agrega un .mid en public/songs/ y recarga.';
-    container.appendChild(empty);
-  } else {
-    const list = document.createElement('ul');
-    list.className = 'song-list';
-    for (const song of params.songs) {
-      const li = document.createElement('li');
-      const btn = document.createElement('button');
-      btn.textContent = song.name;
-      btn.disabled = !params.midiStatus.ok;
-      btn.onclick = () => params.onPlay(song);
-      li.appendChild(btn);
-      list.appendChild(li);
-    }
-    container.appendChild(list);
+    empty.textContent = 'No hay canciones. Agrega un .mid en public/songs/ y recarga.';
+    panel.content.appendChild(empty);
+    return panel.root;
   }
 
-  root.appendChild(container);
+  const list = document.createElement('ul');
+  list.className = 'song-list';
+  for (const song of params.songs) {
+    const li = document.createElement('li');
+    const btn = document.createElement('button');
+    btn.textContent = song.name;
+    btn.disabled = !params.midiStatus.ok;
+    btn.onclick = () => params.onPlay(song);
+    li.appendChild(btn);
+    list.appendChild(li);
+  }
+  panel.content.appendChild(list);
+  return panel.root;
+}
+
+function buildMappingPanel(params: MenuParams): HTMLElement {
+  const panel = createPanel('Mapeo');
+  for (const s of params.strategies) {
+    const btn = document.createElement('button');
+    btn.className = 'panel-btn' + (params.currentStrategy === s.key ? ' active' : '');
+    btn.textContent = s.label;
+    btn.title = s.description;
+    btn.onclick = () => params.onStrategy(s.key);
+    panel.content.appendChild(btn);
+  }
+  return panel.root;
+}
+
+function createPanel(title: string): { root: HTMLElement; content: HTMLElement } {
+  const root = document.createElement('section');
+  root.className = 'menu-panel';
+
+  const heading = document.createElement('div');
+  heading.className = 'menu-panel-title';
+  heading.textContent = title;
+  root.appendChild(heading);
+
+  const content = document.createElement('div');
+  content.className = 'menu-panel-content';
+  root.appendChild(content);
+
+  return { root, content };
+}
+
+function buildSection(
+  title: string,
+  entries: [string, string][],
+  activeKey: string,
+  onSelect: (key: string) => void,
+): HTMLElement {
+  const section = document.createElement('div');
+  section.className = 'menu-panel-section';
+
+  const heading = document.createElement('div');
+  heading.className = 'menu-panel-section-title';
+  heading.textContent = title;
+  section.appendChild(heading);
+
+  for (const [key, label] of entries) {
+    const btn = document.createElement('button');
+    btn.className = 'panel-btn' + (activeKey === key ? ' active' : '');
+    btn.textContent = label;
+    btn.onclick = () => onSelect(key);
+    section.appendChild(btn);
+  }
+  return section;
 }

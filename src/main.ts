@@ -1,8 +1,8 @@
 import './styles.css';
 import type { SongInfo, MidiStatus } from './types';
 import { loadMidi, type LoadedMidi } from './midi/loader';
-import { assignPads } from './midi/mapper';
-import { initMidi, setPadHitHandler } from './midi/input';
+import { STRATEGIES, getStrategy } from './midi/strategies';
+import { initMidi, setPadHitHandler, subscribeMidiState, selectMidiDevice } from './midi/input';
 import { ensureAudioStarted } from './audio/engine';
 import { createGameState } from './game/state';
 import { onPadHit as handlePadHit, restart as restartGame } from './game/controller';
@@ -25,13 +25,28 @@ if (savedMode === 'static' || savedMode === 'falling') {
 
 const savedSynth = localStorage.getItem('pad-hero:synth');
 const validSynths: readonly string[] = [
-  'simple', 'piano', 'guitar-acoustic', 'xylophone', 'organ', 'violin', 'harp',
+  'simple', 'synthwave', 'juno-pad', 'fm-dx7', 'moog-bass', 'acid-303', 'prophet', 'drums',
+  'dubstep-wobble', 'daft-lead', 'house-pluck', 'supersaw', 'deep-bass', 'reese',
+  'psy-lead', 'ambient-drone', 'melodic-pluck', 'lofi', 'matrix',
+  'piano', 'guitar-acoustic', 'guitar-electric', 'xylophone', 'organ', 'violin', 'harp',
 ];
 if (savedSynth && validSynths.includes(savedSynth)) {
   config.synth = savedSynth as typeof config.synth;
 }
 
-let midiStatus: MidiStatus = { ok: false, error: 'Iniciando MIDI…' };
+const savedStrategy = localStorage.getItem('pad-hero:mappingStrategy');
+if (savedStrategy && STRATEGIES.some(s => s.key === savedStrategy)) {
+  config.mappingStrategy = savedStrategy as typeof config.mappingStrategy;
+}
+
+let midiStatus: MidiStatus = {
+  ok: false,
+  error: 'Iniciando MIDI…',
+  devices: [],
+  selectedId: null,
+};
+let cachedSongs: SongInfo[] | null = null;
+let onMenuView = false;
 
 async function loadSongList(): Promise<SongInfo[]> {
   try {
@@ -45,10 +60,11 @@ async function loadSongList(): Promise<SongInfo[]> {
 }
 
 async function goMenu() {
+  onMenuView = true;
   setPadHitHandler(null);
-  const songs = await loadSongList();
+  if (!cachedSongs) cachedSongs = await loadSongList();
   renderMenu(root, {
-    songs,
+    songs: cachedSongs,
     midiStatus,
     viewMode: config.viewMode,
     onViewMode: (mode: ViewMode) => {
@@ -62,7 +78,15 @@ async function goMenu() {
       localStorage.setItem('pad-hero:synth', synth);
       void goMenu();
     },
+    strategies: STRATEGIES.map(s => ({ key: s.key, label: s.label, description: s.description })),
+    currentStrategy: config.mappingStrategy,
+    onStrategy: (key: string) => {
+      config.mappingStrategy = key as typeof config.mappingStrategy;
+      localStorage.setItem('pad-hero:mappingStrategy', key);
+      void goMenu();
+    },
     onPlay: (song) => { void goTrackPicker(song); },
+    onSelectDevice: (id: string) => { selectMidiDevice(id); },
   });
 }
 
@@ -71,12 +95,19 @@ function trackStorageKey(song: SongInfo): string {
 }
 
 async function goTrackPicker(song: SongInfo) {
+  onMenuView = false;
   setPadHitHandler(null);
   try {
     const midi = await loadMidi(song.path);
     if (midi.tracks.length === 0) {
       alert('El MIDI no tiene ningún track con notas.');
       void goMenu();
+      return;
+    }
+
+    const strategy = getStrategy(config.mappingStrategy);
+    if (!strategy.needsTrackPick) {
+      void goGame(song, midi, null);
       return;
     }
 
@@ -108,11 +139,12 @@ async function goTrackPicker(song: SongInfo) {
   }
 }
 
-async function goGame(song: SongInfo, midi: LoadedMidi, trackIdx: number) {
+async function goGame(song: SongInfo, midi: LoadedMidi, trackIdx: number | null) {
+  onMenuView = false;
   try {
     await ensureAudioStarted();
-    const steps = midi.extractSteps(trackIdx);
-    assignPads(steps);
+    const strategy = getStrategy(config.mappingStrategy);
+    const steps = strategy.buildSteps(midi, trackIdx);
     const state = createGameState(steps, song.name);
 
     const start = config.viewMode === 'falling' ? startFallingView : startStaticView;
@@ -129,6 +161,10 @@ async function goGame(song: SongInfo, midi: LoadedMidi, trackIdx: number) {
         view.update();
       },
       onExit: () => { void goMenu(); },
+      onSynth: (key) => {
+        config.synth = key;
+        localStorage.setItem('pad-hero:synth', key);
+      },
     });
 
     setPadHitHandler((padIndex) => {
@@ -138,6 +174,8 @@ async function goGame(song: SongInfo, midi: LoadedMidi, trackIdx: number) {
           view.update();
         } else if (ev.type === 'miss') {
           view.showMiss();
+        } else if (ev.type === 'milestone') {
+          view.showMilestone(ev.message);
         } else if (ev.type === 'completed') {
           view.update();
           setTimeout(() => goEnd(song, midi, trackIdx), 500);
@@ -150,7 +188,8 @@ async function goGame(song: SongInfo, midi: LoadedMidi, trackIdx: number) {
   }
 }
 
-function goEnd(song: SongInfo, midi: LoadedMidi, trackIdx: number) {
+function goEnd(song: SongInfo, midi: LoadedMidi, trackIdx: number | null) {
+  onMenuView = false;
   setPadHitHandler(null);
   renderEnd(root, song.name, {
     onMenu: () => { void goMenu(); },
@@ -159,6 +198,10 @@ function goEnd(song: SongInfo, midi: LoadedMidi, trackIdx: number) {
 }
 
 (async () => {
+  subscribeMidiState((s) => {
+    midiStatus = s;
+    if (onMenuView) void goMenu();
+  });
   midiStatus = await initMidi();
   await goMenu();
 })();

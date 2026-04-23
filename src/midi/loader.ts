@@ -12,6 +12,7 @@ export interface TrackInfo {
 export interface LoadedMidi {
   tracks: TrackInfo[];
   extractSteps(trackIdx: number): Step[];
+  raw: Midi;
 }
 
 export async function loadMidi(url: string): Promise<LoadedMidi> {
@@ -69,5 +70,5 @@ export async function loadMidi(url: string): Promise<LoadedMidi> {
     return steps;
   }
 
-  return { tracks, extractSteps };
+  return { tracks, extractSteps, raw: midi };
 }

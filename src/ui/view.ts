@@ -1,9 +1,11 @@
 import type { GameState } from '../game/state';
+import type { SynthType } from '../audio/synths';
 
 export interface GameViewCallbacks {
   onPause: () => void;
   onRestart: () => void;
   onExit: () => void;
+  onSynth: (key: SynthType) => void;
 }
 
 export interface GameViewHandle {
@@ -11,6 +13,7 @@ export interface GameViewHandle {
   flashPad(padIndex: number): void;
   showMiss(): void;
   showPaused(paused: boolean): void;
+  showMilestone(message: string): void;
 }
 
 export type StartView = (

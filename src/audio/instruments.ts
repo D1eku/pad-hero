@@ -20,6 +20,11 @@ export const INSTRUMENTS = {
     baseUrl: CDN_BASE + 'guitar-acoustic/',
     urls: urls(['A2', 'C3', 'D#3', 'F#3', 'A3', 'C4', 'D#4', 'F#4', 'A4', 'C5']),
   },
+  'guitar-electric': {
+    label: 'Guitarra eléctrica',
+    baseUrl: CDN_BASE + 'guitar-electric/',
+    urls: urls(['E2', 'F#2', 'A2', 'C#3', 'E3', 'F#3', 'A3', 'C#4', 'E4', 'F#4', 'A4', 'C#5', 'E5']),
+  },
   xylophone: {
     label: 'Xilófono',
     baseUrl: CDN_BASE + 'xylophone/',

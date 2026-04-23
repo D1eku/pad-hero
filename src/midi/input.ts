@@ -2,78 +2,164 @@ import { config } from '../config';
 import type { MidiStatus } from '../types';
 
 export type PadHitHandler = (padIndex: number) => void;
+export type MidiStateListener = (status: MidiStatus) => void;
 
+const SAVED_DEVICE_KEY = 'pad-hero:midiDeviceName';
+
+let access: MIDIAccess | null = null;
 let currentHandler: PadHitHandler | null = null;
+let selectedInput: MIDIInput | null = null;
+let stateListener: MidiStateListener | null = null;
+let lastError: string | null = null;
+
+function isThrough(name: string | null | undefined): boolean {
+  return !!name && /midi through/i.test(name);
+}
+
+function listAllInputs(): MIDIInput[] {
+  if (!access) return [];
+  return [...access.inputs.values()];
+}
+
+function listSelectableInputs(): MIDIInput[] {
+  return listAllInputs().filter(i => !isThrough(i.name) && i.state === 'connected');
+}
+
+function computeStatus(): MidiStatus {
+  const selectable = listSelectableInputs();
+  const devices = selectable.map(i => ({ id: i.id, name: i.name ?? 'MIDI device' }));
+  if (!selectedInput || selectedInput.state !== 'connected') {
+    return {
+      ok: false,
+      error: lastError ?? (devices.length === 0
+        ? 'Ningún dispositivo MIDI conectado.'
+        : 'Selecciona un dispositivo MIDI.'),
+      devices,
+      selectedId: null,
+    };
+  }
+  return {
+    ok: true,
+    deviceName: selectedInput.name ?? 'MIDI device',
+    devices,
+    selectedId: selectedInput.id,
+  };
+}
+
+function emit(): void {
+  stateListener?.(computeStatus());
+}
+
+function handleMessage(ev: MIDIMessageEvent): void {
+  const data = ev.data;
+  if (!data || data.length < 3) return;
+  const status = data[0];
+  const note = data[1];
+  const velocity = data[2];
+  const isNoteOn = (status & 0xf0) === 0x90 && velocity > 0;
+  if (!isNoteOn) return;
+  console.log(`[MIDI] noteon note=${note} vel=${velocity}`);
+  const padIndex = config.padMidiNotes.indexOf(note);
+  if (padIndex >= 0 && currentHandler) {
+    currentHandler(padIndex);
+  }
+}
+
+function attachInput(input: MIDIInput): void {
+  if (selectedInput && selectedInput !== input) {
+    selectedInput.onmidimessage = null;
+  }
+  selectedInput = input;
+  input.onmidimessage = handleMessage;
+  if (input.name) localStorage.setItem(SAVED_DEVICE_KEY, input.name);
+  console.log(`[MIDI] usando dispositivo: "${input.name}"`);
+}
+
+function detachInput(): void {
+  if (selectedInput) {
+    selectedInput.onmidimessage = null;
+    selectedInput = null;
+  }
+}
+
+function pickAutoInput(): MIDIInput | null {
+  const inputs = listSelectableInputs();
+  if (inputs.length === 0) return null;
+  const savedName = localStorage.getItem(SAVED_DEVICE_KEY);
+  if (savedName) {
+    const byName = inputs.find(i => i.name === savedName);
+    if (byName) return byName;
+  }
+  const hint = config.midiDeviceNameHint.toLowerCase();
+  const byHint = inputs.find(i => i.name?.toLowerCase().includes(hint));
+  if (byHint) return byHint;
+  return inputs[0];
+}
+
+export function selectMidiDevice(id: string): void {
+  if (!access) return;
+  const input = listAllInputs().find(i => i.id === id);
+  if (input && !isThrough(input.name)) {
+    attachInput(input);
+    emit();
+  }
+}
+
+export function subscribeMidiState(cb: MidiStateListener | null): void {
+  stateListener = cb;
+}
+
+export function getMidiStatus(): MidiStatus {
+  return computeStatus();
+}
 
 export async function initMidi(): Promise<MidiStatus> {
   if (!('requestMIDIAccess' in navigator)) {
     console.warn('[MIDI] requestMIDIAccess no existe — navegador no soporta Web MIDI');
-    return { ok: false, error: 'Web MIDI API no soportada en este navegador' };
+    lastError = 'Web MIDI API no soportada en este navegador';
+    return computeStatus();
   }
-  let access: MIDIAccess;
   try {
     access = await navigator.requestMIDIAccess();
     console.log('[MIDI] requestMIDIAccess OK');
   } catch (e) {
     console.error('[MIDI] requestMIDIAccess falló', e);
-    return { ok: false, error: `Acceso MIDI denegado: ${(e as Error).message}` };
+    lastError = `Acceso MIDI denegado: ${(e as Error).message}`;
+    return computeStatus();
   }
 
   access.onstatechange = (ev: MIDIConnectionEvent) => {
     const p = ev.port;
-    if (!p) return;
-    console.log(`[MIDI] statechange: "${p.name}" type=${p.type} state=${p.state} conn=${p.connection}`);
+    if (p) {
+      console.log(`[MIDI] statechange: "${p.name}" type=${p.type} state=${p.state} conn=${p.connection}`);
+    }
+    if (selectedInput && selectedInput.state !== 'connected') {
+      detachInput();
+    }
+    if (!selectedInput) {
+      const auto = pickAutoInput();
+      if (auto) attachInput(auto);
+    }
+    emit();
   };
 
-  const allInputs = [...access.inputs.values()];
+  const allInputs = listAllInputs();
   console.log(
     `[MIDI] ${allInputs.length} input(s) detectado(s): ` +
       (allInputs.length
         ? allInputs
-            .map(i => `"${i.name ?? '?'}" (manuf="${i.manufacturer ?? '?'}", state=${i.state}, conn=${i.connection})`)
+            .map(i => `"${i.name ?? '?'}" (manuf="${i.manufacturer ?? '?'}", state=${i.state})`)
             .join(' | ')
         : '<ninguno>')
   );
 
-  let chosen: MIDIInput | null = null;
-  const hint = config.midiDeviceNameHint.toLowerCase();
-  for (const input of allInputs) {
-    if (input.name?.toLowerCase().includes(hint)) {
-      chosen = input;
-      console.log(`[MIDI] match por hint "${config.midiDeviceNameHint}": "${input.name}"`);
-      break;
-    }
-  }
-  if (!chosen && allInputs.length > 0) {
-    chosen = allInputs[0];
-    console.log(`[MIDI] sin match con hint — usando primer input: "${chosen.name}"`);
-  }
-  if (!chosen) {
-    return {
-      ok: false,
-      error:
-        'Ningún dispositivo MIDI conectado. Conéctalo, refresca la pestaña y acepta el permiso.',
-    };
-  }
+  const auto = pickAutoInput();
+  if (auto) attachInput(auto);
 
-  chosen.onmidimessage = (ev: MIDIMessageEvent) => {
-    const data = ev.data;
-    if (!data || data.length < 3) return;
-    const status = data[0];
-    const note = data[1];
-    const velocity = data[2];
-    const isNoteOn = (status & 0xf0) === 0x90 && velocity > 0;
-    if (!isNoteOn) return;
-    console.log(`[MIDI] noteon note=${note} vel=${velocity}`);
-    const padIndex = config.padMidiNotes.indexOf(note);
-    if (padIndex >= 0 && currentHandler) {
-      currentHandler(padIndex);
-    }
-  };
-
-  return { ok: true, deviceName: chosen.name ?? 'MIDI device' };
+  lastError = null;
+  return computeStatus();
 }
 
-export function setPadHitHandler(handler: PadHitHandler | null) {
+export function setPadHitHandler(handler: PadHitHandler | null): void {
   currentHandler = handler;
 }

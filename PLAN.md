@@ -77,6 +77,7 @@ Valores iniciales: `[36, 37, 38, 39]` — comunes en pads estilo GM drum kit.
 | `padCount` | `4` | v7: 8, 16 |
 | `mistakeLockMs` | `1000` | config avanzada |
 | `padMidiNotes` | `[36..39]` | v6: UI de calibración + persistencia |
+| `mappingStrategy` | (no existe) | v9: `'linear'` default, más estrategias seleccionables vía Strategy pattern |
 
 ## Correr
 

@@ -3,6 +3,8 @@ import { currentStep, upcomingSteps } from '../game/state';
 import { progressPercent } from '../game/progress';
 import type { GameViewCallbacks, GameViewHandle } from './view';
 import { padColor } from './view';
+import { createSynthPanel } from './synth-panel';
+import { config } from '../config';
 
 function makeTile(padIdx: number, noteName: string, big: boolean): HTMLElement {
   const tile = document.createElement('div');
@@ -35,6 +37,12 @@ export function startView(
   const header = document.createElement('div');
   header.className = 'game-header';
 
+  const titleEl = document.createElement('div');
+  titleEl.className = 'game-song-title';
+  titleEl.textContent = state.songName;
+  titleEl.title = state.songName;
+  header.appendChild(titleEl);
+
   const progressWrap = document.createElement('div');
   progressWrap.className = 'progress-bar';
   const progressFill = document.createElement('div');
@@ -64,6 +72,26 @@ export function startView(
 
   container.appendChild(header);
 
+  const synthPanel = createSynthPanel(config.synth, cb.onSynth);
+  container.appendChild(synthPanel.element);
+
+  const streakPanel = document.createElement('div');
+  streakPanel.className = 'streak-panel';
+  const streakFire = document.createElement('div');
+  streakFire.className = 'streak-panel-fire';
+  streakFire.textContent = '🔥';
+  const streakCount = document.createElement('div');
+  streakCount.className = 'streak-panel-count';
+  streakCount.textContent = '0';
+  const streakMaxWrap = document.createElement('div');
+  streakMaxWrap.className = 'streak-panel-max';
+  streakMaxWrap.innerHTML = 'max <span class="streak-panel-max-value">0</span>';
+  const streakMax = streakMaxWrap.querySelector<HTMLElement>('.streak-panel-max-value')!;
+  streakPanel.appendChild(streakFire);
+  streakPanel.appendChild(streakCount);
+  streakPanel.appendChild(streakMaxWrap);
+  container.appendChild(streakPanel);
+
   const tilesEl = document.createElement('div');
   tilesEl.className = 'tiles';
   container.appendChild(tilesEl);
@@ -90,6 +118,8 @@ export function startView(
     const pct = progressPercent(state);
     progressFill.style.width = `${pct}%`;
     progressText.textContent = `${Math.round(pct)}%`;
+    streakCount.textContent = String(state.streak);
+    streakMax.textContent = String(state.maxStreak);
 
     tilesEl.innerHTML = '';
     const cur = currentStep(state);
@@ -129,7 +159,17 @@ export function startView(
     }
   }
 
+  function showMilestone(message: string) {
+    overlayEl.classList.remove('hidden', 'miss', 'pause');
+    overlayEl.textContent = message;
+    overlayEl.classList.add('celebrate');
+    setTimeout(() => {
+      overlayEl.classList.add('hidden');
+      overlayEl.classList.remove('celebrate');
+    }, 1200);
+  }
+
   update();
 
-  return { update, flashPad, showMiss, showPaused };
+  return { update, flashPad, showMiss, showPaused, showMilestone };
 }

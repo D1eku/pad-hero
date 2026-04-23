@@ -7,6 +7,8 @@ export interface GameState {
   completed: boolean;
   paused: boolean;
   songName: string;
+  streak: number;
+  maxStreak: number;
 }
 
 export function createGameState(steps: Step[], songName: string): GameState {
@@ -17,6 +19,8 @@ export function createGameState(steps: Step[], songName: string): GameState {
     completed: false,
     paused: false,
     songName,
+    streak: 0,
+    maxStreak: 0,
   };
 }
 

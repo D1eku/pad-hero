@@ -23,12 +23,12 @@ export function preload(key: InstrumentKey): void {
   getOrCreate(key);
 }
 
-export function playNote(key: InstrumentKey, noteName: string, duration: number): void {
+export function playNote(key: InstrumentKey, notes: string | string[], duration: number): void {
   const e = getOrCreate(key);
   const d = Math.min(Math.max(duration, 0.15), 1.5);
   if (e.loaded) {
-    e.sampler.triggerAttackRelease(noteName, d);
+    e.sampler.triggerAttackRelease(notes, d);
   } else {
-    simple.playNote(noteName, d);
+    simple.playNote('simple', notes, d);
   }
 }

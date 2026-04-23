@@ -1,10 +1,20 @@
-import * as Tone from 'tone';
+import { buildSynth, type SynthKey } from './synths';
 
-const synth = new Tone.PolySynth(Tone.Synth, {
-  envelope: { attack: 0.005, decay: 0.1, sustain: 0.3, release: 0.4 },
-}).toDestination();
+interface SynthInstance {
+  trigger: (notes: string | string[], dur: number) => void;
+}
 
-export function playNote(noteName: string, duration: number) {
+const cache = new Map<SynthKey, SynthInstance>();
+
+function getOrCreate(key: SynthKey): SynthInstance {
+  const cached = cache.get(key);
+  if (cached) return cached;
+  const instance = buildSynth(key);
+  cache.set(key, instance);
+  return instance;
+}
+
+export function playNote(key: SynthKey, notes: string | string[], duration: number): void {
   const d = Math.min(Math.max(duration, 0.15), 1.5);
-  synth.triggerAttackRelease(noteName, d);
+  getOrCreate(key).trigger(notes, d);
 }
