@@ -2,17 +2,27 @@ import './styles.css';
 import type { SongInfo, MidiStatus } from './types';
 import { loadMidi, type LoadedMidi } from './midi/loader';
 import { STRATEGIES, getStrategy } from './midi/strategies';
-import { initMidi, setPadHitHandler, subscribeMidiState, selectMidiDevice } from './midi/input';
+import {
+  initMidi,
+  setPadHitHandler,
+  setMidiNoteListener,
+  subscribeMidiState,
+  selectMidiDevice,
+} from './midi/input';
 import { ensureAudioStarted } from './audio/engine';
 import { createGameState } from './game/state';
 import { onPadHit as handlePadHit, restart as restartGame } from './game/controller';
 import { renderMenu, type ViewMode, type SynthType } from './ui/menu';
 import { renderTrackPicker } from './ui/track-picker';
+import { renderConfig } from './ui/config';
 import { startView as startStaticView } from './ui/game-static';
 import { startView as startFallingView } from './ui/game-falling';
 import { renderEnd } from './ui/end';
 import { config } from './config';
 import type { GameViewHandle } from './ui/view';
+
+const DEFAULT_PAD_NOTES = [36, 37, 38, 39];
+const PAD_NOTES_KEY = 'pad-hero:padMidiNotes';
 
 const app = document.getElementById('app');
 if (!app) throw new Error('#app not found');
@@ -37,6 +47,22 @@ if (savedSynth && validSynths.includes(savedSynth)) {
 const savedStrategy = localStorage.getItem('pad-hero:mappingStrategy');
 if (savedStrategy && STRATEGIES.some(s => s.key === savedStrategy)) {
   config.mappingStrategy = savedStrategy as typeof config.mappingStrategy;
+}
+
+const savedPadNotes = localStorage.getItem(PAD_NOTES_KEY);
+if (savedPadNotes) {
+  try {
+    const parsed = JSON.parse(savedPadNotes);
+    if (
+      Array.isArray(parsed) &&
+      parsed.length === config.padCount &&
+      parsed.every((n) => Number.isInteger(n) && n >= 0 && n <= 127)
+    ) {
+      config.padMidiNotes = parsed as number[];
+    }
+  } catch {
+    // ignore malformed saved value
+  }
 }
 
 let midiStatus: MidiStatus = {
@@ -87,6 +113,30 @@ async function goMenu() {
     },
     onPlay: (song) => { void goTrackPicker(song); },
     onSelectDevice: (id: string) => { selectMidiDevice(id); },
+    onConfig: () => { goConfig(); },
+  });
+}
+
+function persistPadNotes(): void {
+  localStorage.setItem(PAD_NOTES_KEY, JSON.stringify(config.padMidiNotes));
+}
+
+function goConfig(): void {
+  onMenuView = false;
+  setPadHitHandler(null);
+  renderConfig(root, {
+    padNotes: config.padMidiNotes,
+    onAssign: (padIndex, note) => {
+      config.padMidiNotes[padIndex] = note;
+      persistPadNotes();
+    },
+    onReset: () => {
+      config.padMidiNotes = [...DEFAULT_PAD_NOTES];
+      persistPadNotes();
+      goConfig();
+    },
+    onBack: () => { void goMenu(); },
+    setMidiNoteListener,
   });
 }
 

@@ -23,7 +23,10 @@ export interface MenuParams {
   onStrategy: (key: string) => void;
   onPlay: (song: SongInfo) => void;
   onSelectDevice: (id: string) => void;
+  onConfig: () => void;
 }
+
+const GEAR_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>`;
 
 export function renderMenu(root: HTMLElement, params: MenuParams): void {
   root.innerHTML = '';
@@ -98,6 +101,15 @@ function buildHeader(params: MenuParams): HTMLElement {
     modes.appendChild(btn);
   }
   header.appendChild(modes);
+
+  const configBtn = document.createElement('button');
+  configBtn.type = 'button';
+  configBtn.className = 'menu-header-config';
+  configBtn.title = 'Configuración';
+  configBtn.setAttribute('aria-label', 'Configuración');
+  configBtn.innerHTML = GEAR_SVG;
+  configBtn.onclick = () => params.onConfig();
+  header.appendChild(configBtn);
 
   return header;
 }

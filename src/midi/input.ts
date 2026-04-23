@@ -3,6 +3,7 @@ import type { MidiStatus } from '../types';
 
 export type PadHitHandler = (padIndex: number) => void;
 export type MidiStateListener = (status: MidiStatus) => void;
+export type MidiNoteListener = (note: number) => void;
 
 const SAVED_DEVICE_KEY = 'pad-hero:midiDeviceName';
 
@@ -10,6 +11,7 @@ let access: MIDIAccess | null = null;
 let currentHandler: PadHitHandler | null = null;
 let selectedInput: MIDIInput | null = null;
 let stateListener: MidiStateListener | null = null;
+let noteListener: MidiNoteListener | null = null;
 let lastError: string | null = null;
 
 function isThrough(name: string | null | undefined): boolean {
@@ -59,6 +61,7 @@ function handleMessage(ev: MIDIMessageEvent): void {
   const isNoteOn = (status & 0xf0) === 0x90 && velocity > 0;
   if (!isNoteOn) return;
   console.log(`[MIDI] noteon note=${note} vel=${velocity}`);
+  if (noteListener) noteListener(note);
   const padIndex = config.padMidiNotes.indexOf(note);
   if (padIndex >= 0 && currentHandler) {
     currentHandler(padIndex);
@@ -162,4 +165,8 @@ export async function initMidi(): Promise<MidiStatus> {
 
 export function setPadHitHandler(handler: PadHitHandler | null): void {
   currentHandler = handler;
+}
+
+export function setMidiNoteListener(listener: MidiNoteListener | null): void {
+  noteListener = listener;
 }
