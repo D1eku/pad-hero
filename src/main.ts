@@ -38,6 +38,7 @@ const validSynths: readonly string[] = [
   'simple', 'synthwave', 'juno-pad', 'fm-dx7', 'moog-bass', 'acid-303', 'prophet', 'drums',
   'dubstep-wobble', 'daft-lead', 'house-pluck', 'supersaw', 'deep-bass', 'reese',
   'psy-lead', 'ambient-drone', 'melodic-pluck', 'lofi', 'matrix',
+  'ram-vocoder', 'giorgio-bass', 'ram-rhodes', 'ram-pad',
   'piano', 'guitar-acoustic', 'guitar-electric', 'xylophone', 'organ', 'violin', 'harp',
 ];
 if (savedSynth && validSynths.includes(savedSynth)) {

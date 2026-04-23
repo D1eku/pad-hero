@@ -21,7 +21,11 @@ export type SynthKey =
   | 'ambient-drone'
   | 'melodic-pluck'
   | 'lofi'
-  | 'matrix';
+  | 'matrix'
+  | 'ram-vocoder'
+  | 'giorgio-bass'
+  | 'ram-rhodes'
+  | 'ram-pad';
 export type SynthType = SynthKey | InstrumentKey;
 
 export const SYNTHS: Record<SynthKey, { label: string }> = {
@@ -44,6 +48,10 @@ export const SYNTHS: Record<SynthKey, { label: string }> = {
   'melodic-pluck': { label: 'Melodic Pluck' },
   lofi: { label: 'Lo-fi' },
   matrix: { label: 'Matrix' },
+  'ram-vocoder': { label: 'RAM Vocoder' },
+  'giorgio-bass': { label: 'Giorgio Bass' },
+  'ram-rhodes': { label: 'RAM Rhodes' },
+  'ram-pad': { label: 'RAM Pad' },
 };
 
 interface SynthInstance {
@@ -456,6 +464,84 @@ export function buildSynth(key: SynthKey): SynthInstance {
       const reverb = new Tone.Reverb({ decay: 3, wet: 0.3 });
       s.chain(distortion, chorus, reverb, masterOut());
       s.maxPolyphony = 16;
+      return { trigger: (n, d) => s.triggerAttackRelease(n, d) };
+    }
+    case 'ram-vocoder': {
+      const s = new Tone.PolySynth(Tone.FMSynth, {
+        harmonicity: 3,
+        modulationIndex: 6,
+        envelope: { attack: 0.01, decay: 0.25, sustain: 0.7, release: 0.8 },
+        modulation: { type: 'triangle' },
+        modulationEnvelope: { attack: 0.02, decay: 0.2, sustain: 0.5, release: 0.6 },
+      });
+      const chorus = new Tone.Chorus({ frequency: 1.2, delayTime: 3.5, depth: 0.7 }).start();
+      const phaser = new Tone.Phaser({ frequency: 0.5, octaves: 2, baseFrequency: 600 });
+      const delay = new Tone.FeedbackDelay({ delayTime: '8n', feedback: 0.2, wet: 0.2 });
+      const reverb = new Tone.Reverb({ decay: 2, wet: 0.25 });
+      s.chain(chorus, phaser, delay, reverb, masterOut());
+      s.maxPolyphony = 16;
+      return { trigger: (n, d) => s.triggerAttackRelease(n, d) };
+    }
+    case 'giorgio-bass': {
+      const s = new Tone.PolySynth(Tone.MonoSynth, {
+        oscillator: { type: 'sawtooth' },
+        envelope: { attack: 0.002, decay: 0.15, sustain: 0.3, release: 0.18 },
+        filter: { Q: 4, type: 'lowpass', rolloff: -24 },
+        filterEnvelope: {
+          attack: 0.005,
+          decay: 0.2,
+          sustain: 0.4,
+          release: 0.3,
+          baseFrequency: 180,
+          octaves: 3,
+        },
+      });
+      const delay = new Tone.FeedbackDelay({ delayTime: '16n', feedback: 0.35, wet: 0.28 });
+      const reverb = new Tone.Reverb({ decay: 1.2, wet: 0.15 });
+      s.chain(delay, reverb, masterOut());
+      s.maxPolyphony = 8;
+      return { trigger: (n, d) => s.triggerAttackRelease(n, d) };
+    }
+    case 'ram-rhodes': {
+      const s = new Tone.PolySynth(Tone.FMSynth, {
+        harmonicity: 2,
+        modulationIndex: 5,
+        envelope: { attack: 0.003, decay: 0.9, sustain: 0.2, release: 1.5 },
+        modulation: { type: 'sine' },
+        modulationEnvelope: { attack: 0.003, decay: 0.6, sustain: 0.1, release: 1.2 },
+      });
+      const chorus = new Tone.Chorus({ frequency: 0.8, delayTime: 4, depth: 0.6 }).start();
+      const tremolo = new Tone.Tremolo({ frequency: 3.5, depth: 0.25 }).start();
+      const reverb = new Tone.Reverb({ decay: 2.5, wet: 0.3 });
+      s.chain(chorus, tremolo, reverb, masterOut());
+      s.maxPolyphony = 16;
+      return { trigger: (n, d) => s.triggerAttackRelease(n, d) };
+    }
+    case 'ram-pad': {
+      const voice = {
+        oscillator: { type: 'fatsawtooth' as const, count: 3, spread: 25 },
+        envelope: { attack: 0.6, decay: 0.8, sustain: 0.8, release: 2.5 },
+        filter: { Q: 1.2, type: 'lowpass' as const, rolloff: -24 as const },
+        filterEnvelope: {
+          attack: 0.8,
+          decay: 0.9,
+          sustain: 0.55,
+          release: 2.2,
+          baseFrequency: 350,
+          octaves: 2.5,
+        },
+      };
+      const s = new Tone.PolySynth(Tone.DuoSynth, {
+        harmonicity: 1.01,
+        vibratoAmount: 0.06,
+        vibratoRate: 4,
+        voice0: voice,
+        voice1: voice,
+      });
+      const chorus = new Tone.Chorus({ frequency: 0.6, delayTime: 5, depth: 0.8 }).start();
+      const reverb = new Tone.Reverb({ decay: 6, wet: 0.5 });
+      s.chain(chorus, reverb, masterOut());
+      s.maxPolyphony = 12;
       return { trigger: (n, d) => s.triggerAttackRelease(n, d) };
     }
   }
