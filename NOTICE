@@ -1,0 +1,18 @@
+Pad Hero
+Copyright 2026 D1eku (https://github.com/D1eku)
+
+This product includes software developed by D1eku
+(https://github.com/D1eku/pad-hero).
+
+Any redistribution or derivative work (including forks and commercial
+products) must retain this NOTICE file and give visible credit to the
+original author as described in section 4(d) of the Apache License 2.0.
+
+Third-party content:
+- The MIDI files in public/songs/ are transcriptions of songs owned by their
+  respective composers, performers and publishers, obtained from public MIDI
+  sites. They are NOT covered by this project's license and are included for
+  personal, non-commercial use only.
+- Instrument samples are loaded at runtime from nbrosowsky/tonejs-instruments
+  (MIT License, https://github.com/nbrosowsky/tonejs-instruments).
+- Tone.js and @tonejs/midi are distributed under the MIT License.
